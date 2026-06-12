@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solar Battery Monitor</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+body{font-family:Arial;background:#f4f4f4;text-align:center;padding:20px;}
+.card{display:inline-block;background:white;margin:10px;padding:20px;border-radius:10px;width:200px;box-shadow:0 2px 5px rgba(0,0,0,0.2);}
+canvas{max-width:95%;margin-top:20px;}
+.status{margin:10px;font-weight:bold;}
+.connected{color:green;}
+.disconnected{color:red;}
+</style>
+
+</head>
+<body>
+
+<h1>Solar Battery Monitor</h1>
+
+<div id="status" class="status disconnected">Disconnected</div>
+
+<div class="card"><h3>Battery</h3><h2 id="battery">0%</h2></div>
+<div class="card"><h3>Voltage</h3><h2 id="voltage">0</h2></div>
+<div class="card"><h3>Current</h3><h2 id="current">0</h2></div>
+<div class="card"><h3>Power</h3><h2 id="power">0</h2></div>
+
+<canvas id="vChart"></canvas>
+<canvas id="cChart"></canvas>
+<canvas id="pChart"></canvas>
+
+<script>
+const client = mqtt.connect(
+'wss://72f0c3a517c845b8ac520b8aa04e7dd4.s1.eu.hivemq.cloud:8884/mqtt',
+{
+username:'ESP32_solar',
+password:'ESP32_solar',
+reconnectPeriod:5000
+});
+
+let labels=[],v=[],c=[],p=[];
+let voltage=0,current=0,power=0,battery=0;
+
+const vChart=new Chart(document.getElementById('vChart'),{
+type:'line',
+data:{labels:labels,datasets:[{label:'Voltage',data:v,tension:0.4}]}
+});
+
+const cChart=new Chart(document.getElementById('cChart'),{
+type:'line',
+data:{labels:labels,datasets:[{label:'Current',data:c,tension:0.4}]}
+});
+
+const pChart=new Chart(document.getElementById('pChart'),{
+type:'line',
+data:{labels:labels,datasets:[{label:'Power',data:p,tension:0.4}]}
+});
+
+client.on('connect',()=>{
+document.getElementById('status').innerHTML='Connected';
+document.getElementById('status').className='status connected';
+client.subscribe('solar/data');
+});
+
+client.on('message',(t,m)=>{
+let d=JSON.parse(m.toString());
+voltage=d.voltage;current=d.current;power=d.power;battery=d.battery;
+update();
+});
+
+function update(){
+document.getElementById('battery').innerHTML=battery+'%';
+document.getElementById('voltage').innerHTML=voltage+' V';
+document.getElementById('current').innerHTML=current+' A';
+document.getElementById('power').innerHTML=power+' W';
+
+let time=new Date().toLocaleTimeString();
+labels.push(time);v.push(voltage);c.push(current);p.push(power);
+
+if(labels.length>30){labels.shift();v.shift();c.shift();p.shift();}
+vChart.update();cChart.update();pChart.update();
+}
+</script>
+
+</body>
+</html>
